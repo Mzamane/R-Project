@@ -1,0 +1,267 @@
+---
+title: "R Markdown Capstone Project"
+author: "Mzamane Sithole"
+date: "2022-08-31"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+#BACKGROUND
+##Cyclistic is a fictional bike sharing program which features more than 5,800 bikes and 600 docking stations. It offers reclining bikes, hand tricycles, and cargo bikes, making it more inclusive to people with disabilities and riders who can't use a standard two-wheeled bike. It was founded in 2016 and has grown tremendously into a fleet of bicycles that are geotracked and locked into a network of 692 stations across Chicago. The bikes can be unlocked from one station and returned to any other station in the system anytime. 
+
+##Previously, Cyclistic's marketing strategy tried to build the general awareness and appeal to broad consumers. It has flexible pricing plans: single-ride passes, full-day passes, and annual memberships. Those who purchase single-ride or full-day passes are referred to as casual riders while those who purchase annual memberships are Cyclistic members. 
+
+
+##My Role: In this scenario I am a junior data analyst at Cyclistic and my team has been tasked with the overall goal (see below) of designing marketing strategies 
+
+
+##Overall Goal: Design marketing strategies aimed at converting casual riders into annual members.
+
+
+##Business Question: "How do annual members and casual riders use Cyclistic bikes differently?"
+
+#Data sources Used
+##Previous 12 months of Cyclistic trip data made available by Motivate International Inc. Link here: https://divvy-tripdata.s3.amazonaws.com/index.html
+
+##Data integrity: Can not be verified since I am not familiar with the company
+
+##Data Errors and Issues: Data has issues with duplicate data, Null values, and invalid data.
+
+##Tools Choosing to work with R due to it’s flexibility, and the fact that we have a large dataset.
+
+##Data should help me answer the question of “how do annual members and casual riders use Cyclistic bikes differently?” because I have access to a year’s worth of data for both casual and member riders. Data has over 4 million records which is a lot.
+
+
+#install packages and load them for data wrangling
+```{r}
+install.packages("tidyverse")
+library("tidyverse")
+library("lubridate")
+```
+
+
+#Data Preparation
+##upload 12 months .csv files to work with
+```{r}
+aug2021_df = read_csv("202108-divvy-tripdata.csv")
+sep2021_df = read_csv("202109-divvy-tripdata.csv")
+oct2021_df = read_csv("202110-divvy-tripdata.csv")
+nov2021_df = read_csv("202111-divvy-tripdata.csv")
+dec2021_df = read_csv("202112-divvy-tripdata.csv")
+jan2022_df = read_csv("202201-divvy-tripdata.csv")
+feb2022_df = read_csv("202202-divvy-tripdata.csv")
+mar2022_df = read_csv("202203-divvy-tripdata.csv")
+apr2022_df = read_csv("202204-divvy-tripdata.csv")
+may2022_df = read_csv("202205-divvy-tripdata.csv")
+jun2022_df = read_csv("202206-divvy-tripdata.csv")
+jul2022_df = read_csv("202207-divvy-tripdata.csv")
+```
+
+
+##combine all 12 sets of dataframes into one data frame
+```{r}
+cyclistic_df = rbind(aug2021_df, sep2021_df, oct2021_df, nov2021_df, dec2021_df, jan2022_df, feb2022_df, mar2022_df, apr2022_df, may2022_df, jun2022_df, jul2022_df)
+```
+
+
+##remove individual month df to clear up space in the environment
+```{r}
+remove(aug2021_df, sep2021_df, oct2021_df, nov2021_df, dec2021_df, jan2022_df, feb2022_df, mar2022_df, apr2022_df, may2022_df, jun2022_df, jul2022_df)
+```
+
+
+##add new column ride_length and calculate ride length by subtracting ended_at time by started_at time
+```{r}
+cyclistic_df$ride_length = difftime(cyclistic_df$ended_at, cyclistic_df$started_at, units = "min")
+```
+
+
+##add day_of_week for additional calculations (default date format yyyy-mm-dd)
+```{r}
+cyclistic_df$day_of_week = wday(cyclistic_df$started_at) #calculate the day of the week
+```
+
+
+##add columns that show day, month, year and date for each ride
+```{r}
+cyclistic_df$date = as.Date(cyclistic_df$started_at) 
+cyclistic_df$day = format(as.Date(cyclistic_df$date), "%d") 
+cyclistic_df$month = format(as.Date(cyclistic_df$date), "%m") 
+cyclistic_df$year = format(as.Date(cyclistic_df$date), "%Y") 
+cyclistic_df$day_of_week = format(as.Date(cyclistic_df$date), "%A")
+```
+ 
+
+#Data Cleaning
+##arrange day_of_week from monday to sunday
+```{r}
+cyclistic_df$day_of_week = ordered(cyclistic_df$day_of_week, levels=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+```
+ 
+
+##order months of the year
+```{r}
+cyclistic_df$month = ordered(cyclistic_df$month, levels=c("01", "02", "03", "04", "05", "06", "07","08","09","10","11","12"))
+```
+ 
+
+##remove rows with NA values
+```{r}
+cyclistic_df = na.omit(cyclistic_df)
+```
+
+
+##remove duplicate rows
+```{r}
+cyclistic_df = distinct(cyclistic_df)
+```
+
+
+##remove data where ride_length is 0 or negative
+```{r}
+cyclistic_df = cyclistic_df[!(cyclistic_df$ride_length <=0),]
+```
+ 
+
+##remove columns not needed for analysis: ride_id, start_station_id, end_station_id, start_lat, start_long, end_lat, end_lng
+```{r}
+cyclistic_df = cyclistic_df %>%  
+  select(-c(ride_id, start_station_id, end_station_id,start_lat,start_lng,end_lat,end_lng))
+```
+
+
+##converting ride_length to numeric for calculations
+```{r}
+cyclistic_df$ride_length = as.numeric(as.character(cyclistic_df$ride_length))
+is.numeric(cyclistic_df$ride_length)
+```
+
+
+##view the cleaned data
+```{r}
+View(cyclistic_df)
+```
+
+
+#Analyzing data 
+##total number of rides for the year
+```{r}
+nrow(cyclistic_df)
+```
+
+
+##member_type
+```{r}
+cyclistic_df %>%
+  group_by(member_casual) %>% 
+  count(member_casual)
+```
+
+
+##total rides by member_type
+```{r}
+cyclistic_df %>%
+  group_by(member_casual, rideable_type) %>% 
+  count(rideable_type)
+```
+
+
+##total rides by rideable_type
+```{r}
+cyclistic_df %>%
+  group_by(rideable_type) %>% 
+  count(rideable_type)
+```
+
+
+#Data Visualization
+##count of bike_trips, member_type and bike_type
+```{r}
+cyclistic_df %>%
+  group_by(rideable_type, member_casual) %>%
+  dplyr::summarize(count_trips = n()) %>%  
+  ggplot(aes(x= rideable_type, y=count_trips, fill=member_casual, color=member_casual)) +
+  geom_bar(stat='identity', position = 'dodge') +
+  theme_bw()+
+  labs(title ="Bicycle Type Number of trips", x = "Bicycle Type", y = "Count of Trips")
+```
+
+
+##number of bike_rides per week bar_chart
+```{r}
+cyclistic_df %>%
+  group_by(member_casual,day_of_week) %>%
+  dplyr::summarize(count_trips = n()) %>%  
+  ggplot(aes(x= day_of_week, y=count_trips, fill=member_casual, color=member_casual)) +
+  geom_bar(stat='identity', position = 'dodge') +
+  theme_bw()+
+  labs(title ="Number of bike rides per Week", x = "Day", y = "Count of Trips")
+```
+
+
+## number of bike_rides per month  bar_chart
+```{r}
+cyclistic_df %>%
+  group_by(member_casual,month) %>%
+  dplyr::summarize(count_trips = n()) %>%  
+  ggplot(aes(x= month, y=count_trips, fill=member_casual, color=member_casual)) +
+  geom_bar(stat='identity', position = 'dodge') +
+  theme_bw() +
+  labs(title ="Number of bike rides per month", x = "Month", y = "Count of Trips")
+```
+
+
+##popular Start Stations for Member riders
+```{r}
+cyclistic_df %>%
+  group_by(member_casual,start_station_name) %>%
+  dplyr::summarise(number_of_ride = n()) %>%
+  filter(start_station_name != "", "member" == member_casual) %>%
+  arrange(-number_of_ride) %>%
+  head(n=30) %>%
+  select(-member_casual)
+```
+
+
+##popular Start Stations for Casual riders
+```{r}
+cyclistic_df %>%
+  group_by(member_casual,start_station_name) %>%
+  dplyr::summarise(number_of_ride = n()) %>%
+  filter(start_station_name != "", "casual"== member_casual) %>%
+  arrange(-number_of_ride) %>%
+  head(n=30) %>%
+  select(-member_casual)
+```
+
+#Summary and Recommendations
+##Learned that a classic_bike type is around 2 times as popular compared to docked and electric bikes. This applies to both casual and member bicycle users.
+
+##Learned that Saturday and Sunday are the most popular riding days for casual riders.
+
+##November through February have the least number of casual riders, perhaps due to cold winter months.
+
+##May, July, and August have a particularly high number of Casual riders.
+
+##The most popular stations for Casual riders in descending order are Streeter Dr & Grand Ave, Lake Shore Dr & Monroe St, Millennium Park, Theater on the Lake, Michigan Ave & Oak St.
+
+#Conclusion 
+##Based on the data analyzed I would recommend we focus our marketing effors for Casual Riders with these parameters 1, Increase marketing for classic_bikes 2. Heavier marketing from May through August 3. Focus marketing on weekends 4. Invest in marketing at the top 5 stations as noted above. Top 10 station marketing would cover even more ground.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
